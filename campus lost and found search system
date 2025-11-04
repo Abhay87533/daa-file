@@ -1,0 +1,168 @@
+import tkinter as tk
+from tkinter import ttk, messagebox
+import networkx as nx
+import matplotlib.pyplot as plt
+from collections import deque
+
+# -------------------------------
+# CAMPUS GRAPH SETUP
+# -------------------------------
+campus_graph = {
+    'Library': ['Canteen', 'Lab'],
+    'Canteen': ['Library', 'Hostel', 'Office'],
+    'Lab': ['Library', 'Auditorium'],
+    'Hostel': ['Canteen', 'Playground'],
+    'Office': ['Canteen', 'Auditorium'],
+    'Auditorium': ['Office', 'Lab'],
+    'Playground': ['Hostel']
+}
+
+# -------------------------------
+# BFS FUNCTION (Shortest Path)
+# -------------------------------
+def bfs_search(start, goal):
+    visited = []
+    queue = deque([[start]])
+    if start == goal:
+        return [start]
+    while queue:
+        path = queue.popleft()
+        node = path[-1]
+        if node not in visited:
+            for neighbor in campus_graph.get(node, []):
+                new_path = list(path)
+                new_path.append(neighbor)
+                queue.append(new_path)
+                if neighbor == goal:
+                    return new_path
+            visited.append(node)
+    return None
+
+# -------------------------------
+# DFS FUNCTION (Exploration)
+# -------------------------------
+def dfs_search(start, goal, path=None, visited=None):
+    if visited is None:
+        visited = set()
+    if path is None:
+        path = [start]
+    visited.add(start)
+    if start == goal:
+        return path
+    for neighbor in campus_graph.get(start, []):
+        if neighbor not in visited:
+            new_path = dfs_search(neighbor, goal, path + [neighbor], visited)
+            if new_path:
+                return new_path
+    return None
+
+# -------------------------------
+# VISUALIZE GRAPH USING NETWORKX
+# -------------------------------
+def visualize_graph(path=None):
+    G = nx.Graph()
+    for node, neighbors in campus_graph.items():
+        for n in neighbors:
+            G.add_edge(node, n)
+
+    pos = nx.spring_layout(G, seed=42)
+    plt.figure(figsize=(7, 5))
+    nx.draw(G, pos, with_labels=True, node_color="#87CEEB", node_size=2000,
+            font_size=10, font_weight='bold', edge_color="gray")
+
+    if path:
+        edges_in_path = list(zip(path, path[1:]))
+        nx.draw_networkx_edges(G, pos, edgelist=edges_in_path, edge_color='red', width=3)
+        nx.draw_networkx_nodes(G, pos, nodelist=path, node_color='lightgreen')
+
+    plt.title("Campus Graph Visualization", fontsize=14, fontweight="bold")
+    plt.show()
+
+# -------------------------------
+# GUI APPLICATION CLASS
+# -------------------------------
+class LostFoundSystem:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Campus Lost and Found Search System (DAA Project)")
+        self.root.geometry("700x550")
+        self.root.config(bg="#e9f0f5")
+
+        # Title
+        tk.Label(root, text="Campus Lost & Found Search System",
+                 bg="#2E8B57", fg="white", font=("Arial", 16, "bold"), pady=10).pack(fill="x")
+
+        # Frame for inputs
+        frame = tk.Frame(root, bg="#e9f0f5")
+        frame.pack(pady=20)
+
+        tk.Label(frame, text="Start Location:", bg="#e9f0f5", font=("Arial", 12)).grid(row=0, column=0, padx=10, pady=10)
+        self.start_var = tk.StringVar()
+        self.start_cb = ttk.Combobox(frame, textvariable=self.start_var, values=list(campus_graph.keys()), width=20, state="readonly")
+        self.start_cb.grid(row=0, column=1, padx=10, pady=10)
+
+        tk.Label(frame, text="Lost Item Location:", bg="#e9f0f5", font=("Arial", 12)).grid(row=1, column=0, padx=10, pady=10)
+        self.goal_var = tk.StringVar()
+        self.goal_cb = ttk.Combobox(frame, textvariable=self.goal_var, values=list(campus_graph.keys()), width=20, state="readonly")
+        self.goal_cb.grid(row=1, column=1, padx=10, pady=10)
+
+        # Buttons
+        btn_frame = tk.Frame(root, bg="#e9f0f5")
+        btn_frame.pack(pady=15)
+
+        tk.Button(btn_frame, text="Search Using BFS", command=self.search_bfs,
+                  bg="#3E497A", fg="white", font=("Arial", 12), width=18).grid(row=0, column=0, padx=10)
+        tk.Button(btn_frame, text="Search Using DFS", command=self.search_dfs,
+                  bg="#4682B4", fg="white", font=("Arial", 12), width=18).grid(row=0, column=1, padx=10)
+        tk.Button(btn_frame, text="Show Campus Graph", command=lambda: visualize_graph(),
+                  bg="#2E8B57", fg="white", font=("Arial", 12), width=18).grid(row=0, column=2, padx=10)
+
+        # Result display
+        tk.Label(root, text="Search Result:", bg="#e9f0f5", font=("Arial", 12, "bold")).pack(anchor="w", padx=30)
+        self.result_box = tk.Text(root, height=12, width=80, font=("Consolas", 11))
+        self.result_box.pack(padx=20, pady=10)
+
+    # -------------------------------
+    # SEARCH FUNCTIONS
+    # -------------------------------
+    def search_bfs(self):
+        start = self.start_var.get()
+        goal = self.goal_var.get()
+        if not start or not goal:
+            messagebox.showerror("Input Error", "Please select both locations.")
+            return
+        path = bfs_search(start, goal)
+        self.display_result("BFS", start, goal, path)
+
+    def search_dfs(self):
+        start = self.start_var.get()
+        goal = self.goal_var.get()
+        if not start or not goal:
+            messagebox.showerror("Input Error", "Please select both locations.")
+            return
+        path = dfs_search(start, goal)
+        self.display_result("DFS", start, goal, path)
+
+    # -------------------------------
+    # DISPLAY RESULTS
+    # -------------------------------
+    def display_result(self, algo, start, goal, path):
+        self.result_box.delete(1.0, tk.END)
+        if path:
+            self.result_box.insert(tk.END, f"Algorithm Used : {algo}\n")
+            self.result_box.insert(tk.END, f"Start Location : {start}\n")
+            self.result_box.insert(tk.END, f"Lost Item Location : {goal}\n\n")
+            self.result_box.insert(tk.END, f"Path Found : {' → '.join(path)}\n")
+            self.result_box.insert(tk.END, f"Total Steps : {len(path) - 1}\n\n")
+            self.result_box.insert(tk.END, f"Note: The path is also highlighted in red in the graph.\n")
+            visualize_graph(path)
+        else:
+            self.result_box.insert(tk.END, f"No path found between {start} and {goal} using {algo}.\n")
+
+# -------------------------------
+# MAIN
+# -------------------------------
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = LostFoundSystem(root)
+    root.mainloop()
